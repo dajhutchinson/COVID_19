@@ -1,0 +1,108 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(reshape2) # melt
+```
+
+# Explore Population Data
+
+## Total Population
+
+```{r}
+pop_data<-read.csv("data/population/UK_Projected_Population_2020.csv")
+total_pop<-sum(pop_data$Total)
+
+female_to_male<-sum(pop_data$Females)/sum(pop_data$Males)
+paste("UK wide Female to Male Ratio: ",round(female_to_male,3))
+```
+
+```{r}
+# Longform data for grouped columns
+long_data<-melt(data=pop_data, id.vars="Age",measure.vars=c("Females","Males"))
+
+# plot
+pop_by_age<-ggplot(data=long_data, aes(x=Age,y=value,fill=variable)) + 
+  geom_bar(stat="identity",position=position_dodge()) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ylab("Population")
+pop_by_age
+```
+
+## Gender Ratio
+```{r}
+female_to_male<-pop_data$Females/pop_data$Males
+
+# label min and max columns
+labels<-round(female_to_male,2)
+labels[which(labels!=max(labels) & labels!=min(labels))]<-""
+
+p<-barplot(female_to_male,ylim=c(.5,max(female_to_male)*1.1),xpd=FALSE,names=pop_data$Age,las=2,ylab="Female:Male")
+p<-text(x=p,y=female_to_male,label=labels,pos=3,cex=0.8,col="red")
+p<-p+abline(h=1,col="red")
+```
+
+## Regional
+```{r}
+regional_data<-read.csv("data/population/ENG_WAL_Population_Region_2019.csv")
+head(regional_data)
+```
+
+```{r}
+# Longform data for grouped columns
+long_data<-melt(data=regional_data, id.vars="Region",measure.vars=c("Females","Males"))
+long_data
+
+pop_by_region<-ggplot(data=long_data, aes(x=Region,y=value,fill=variable)) + 
+  geom_bar(stat="identity",position=position_dodge()) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ylab("Population")
+pop_by_region
+```
+
+## Ethnicity
+```{r}
+ethnic_data<-read.csv("data/population/ENG_WAL_Population_Region_Ethnicity.csv")
+head(ethnic_data)
+```
+
+```{r}
+# How to read column with variable specifying name
+# r<-"East"
+# ethnic_data[[r]]
+
+estimated_data<-data.frame(matrix(ncol=7,nrow=0)) # prepare data frame
+
+# estimate population of each ethnicity in each region
+for (r in regional_data$Region) {
+  r_col<-gsub(" ",".",r)
+  estimates<-c()
+  for (i in seq(to=dim(ethnic_data)[1])) {
+    e<-ethnic_data$X[i]
+    ethnic_percent<-ethnic_data[[r_col]][i]/100
+    total_pop<-regional_data[which(regional_data$Region==r),]$Total
+    estimate<-round(ethnic_percent*total_pop)
+    estimates<-c(estimates,estimate)
+  }
+  estimated_data<-rbind(estimated_data,c(r,estimates))
+}
+colnames(estimated_data)<-c("Region","Asain","Black","White.British","Mixed","White.other","Other")
+estimated_data[,2:7]<-sapply(estimated_data[,2:7],as.integer)
+estimated_data
+
+```
+
+```{r}
+# make data long-form for stackable columns
+long_data<-melt(data=estimated_data, id.vars="Region",measure.vars=colnames(estimated_data)[2:7])
+long_data
+
+pop_by_ethnicity<-ggplot(data=long_data, aes(x=Region,y=value,fill=variable)) + 
+  geom_bar(stat="identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ylab("Estimated Population")
+pop_by_ethnicity
+```
