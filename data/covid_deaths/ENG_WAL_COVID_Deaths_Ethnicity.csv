@@ -1,0 +1,29 @@
+Ethnicity,Gender,Under 65,Total COVID deaths
+White,Male,TRUE,627
+White,Male,FALSE,5762
+White,Female,TRUE,409
+White,Female,FALSE,3928
+Mixed/Multiple Ethnic Groups,Male,TRUE,9
+Mixed/Multiple Ethnic Groups,Male,FALSE,51
+Mixed/Multiple Ethnic Groups,Female,TRUE,9
+Mixed/Multiple Ethnic Groups,Female,FALSE,25
+Indian,Male,TRUE,56
+Indian,Male,FALSE,242
+Indian,Female,TRUE,26
+Indian,Female,FALSE,159
+Bangladeshis/Pakistani,Male,TRUE,65
+Bangladeshis/Pakistani,Male,FALSE,192
+Bangladeshis/Pakistani,Female,TRUE,35
+Bangladeshis/Pakistani,Female,FALSE,94
+Chinese,Male,TRUE,7
+Chinese,Male,FALSE,34
+Chinese,Female,TRUE,3
+Chinese,Female,FALSE,15
+Black,Male,TRUE,105
+Black,Male,FALSE,348
+Black,Female,TRUE,80
+Black,Female,FALSE,233
+Other Ethnic Group,Male,TRUE,49
+Other Ethnic Group,Male,FALSE,148
+Other Ethnic Group,Female,TRUE,16
+Other Ethnic Group,Female,FALSE,78
