@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Explore COVID-19 related Death Data"
 output:
   pdf_document: default
   html_notebook: default
@@ -9,7 +9,6 @@ output:
 library(ggplot2)
 library(reshape2) # melt
 library(RColorBrewer) # colour pallettes for ggplot
-library(viridis) # colour pallette
 ```
 
 ```{r}
@@ -19,10 +18,8 @@ age_range_str<-function(s){
 }
 ```
 
-# Explore COVID-19 Death Data
-
-## Total Deaths by Age
-Deaths as of week ending 22nd May.
+# Total Deaths by Age
+Data up to week ending 22nd May 2020.
 
 ```{r}
 weekly_deaths<-read.csv("data/covid_deaths/ENG_WAL_Weekly_COVID_Deaths.csv")
@@ -81,7 +78,7 @@ for (i in 1:nrow(total_deaths)) {
 paste("Median age of COVID related death:",round(median,1))
 ```
 
-## Deaths per Week
+# Deaths per Week
 ```{r}
 # make data long-form for stackable columns
 long_data<-melt(data=weekly_deaths, id.vars="Week.number",measure.vars=colnames(weekly_deaths)[3:ncol(weekly_deaths)])
@@ -96,7 +93,8 @@ weekly_deaths_by_age<-ggplot(data=long_data, aes(x=Week.number,y=value,fill=vari
 weekly_deaths_by_age
 ```
 
-## Deaths by Gender
+# Deaths by Gender
+Data up to week ending 22nd May 2020.
 
 ```{r}
 male_deaths<-read.csv("data/covid_deaths/ENG_WAL_Weekly_COVID_Deaths_Male.csv")
@@ -105,7 +103,7 @@ female_deaths<-read.csv("data/covid_deaths/ENG_WAL_Weekly_COVID_Deaths_Female.cs
 #head(female_deaths)
 ```
 
-### Total Deaths
+## Total Deaths
 ```{r}
 gender_weekly_deaths<-rbind(male_deaths$Week.ended,male_deaths$Week.number,rowSums(male_deaths[3:ncol(male_deaths)]),rowSums(female_deaths[3:ncol(female_deaths)]))
 gender_weekly_deaths<-as.data.frame(t(gender_weekly_deaths))
@@ -121,7 +119,7 @@ weekly_deaths_by_gender<-ggplot(data=long_data, aes(x=Week.number,y=value,fill=v
 weekly_deaths_by_gender
 ```
 
-### Proportion of Deaths
+## Proportion of Deaths
 ```{r}
 # calculate rolling proportions
 cum_male<-cumsum(gender_weekly_deaths$Male)
@@ -134,6 +132,7 @@ prop_gender_weekly_deaths[3:4]<-prop_gender_weekly_deaths[3:4]/(rowSums(prop_gen
 prop_gender_weekly_deaths[is.na(prop_gender_weekly_deaths)]<-0
 
 long_data<-melt(data=prop_gender_weekly_deaths,id.vars=c("Week.number","rolling_prop"),measure.vars=c("Male","Female"))
+long_data
 
 p<-ggplot(data=long_data,aes(x=Week.number)) +
   ylab("Male:Female Deaths") +
@@ -150,13 +149,14 @@ p
 Why are more men dying?
 Is it actually converging to 50%?
 
-## Deaths by Location
+# Deaths by Region
+Data up to week ending 22nd May 2020.
 
 ```{r}
 region_deaths<-read.csv("data/covid_deaths/ENG_WAL_Weekly_COVID_Deaths_Region.csv")
 ```
 
-### Total deaths by location
+## Total deaths
 ```{r}
 total_regional_deaths<-data.frame(matrix(nrow=0,ncol=2))
 
@@ -178,7 +178,7 @@ p<-barplot(total_regional_deaths$Total_Deaths,ylab="Total RONA related Deaths",m
 p<-text(x=p,y=total_regional_deaths$Total_Deaths,label=labels,pos=3,cex=0.8,col="red")
 ```
 
-### Deaths per week by region
+## Deaths per week
 ```{r}
 colours<-rainbow(ncol(region_deaths))
 
@@ -190,7 +190,7 @@ for (i in 3:ncol(region_deaths)) {
 p<-legend("left",legend=colnames(region_deaths)[-1:-2],col=colours[-1:-2],lty=1)
 ```
 
-### Cummulative Weekly deaths by region
+## Cummulative Weekly deaths
 ```{r}
 cum_region_deaths<-cumsum(region_deaths[-1:-2])
 cum_region_deaths<-data.frame(cbind(region_deaths[1:2],cum_region_deaths))
@@ -203,31 +203,156 @@ for (i in 3:ncol(cum_region_deaths)) {
 p<-legend("left",legend=colnames(cum_region_deaths)[-1:-2],col=colours[-1:-2],lty=1)
 ```
 
-## Deaths by Ethnicity
+# Deaths by Ethnicity
 Data up to 10th April 2020.
 
 ```{r}
 ethnicity_deaths<-read.csv("data/covid_deaths/ENG_WAL_COVID_Deaths_Ethnicity.csv")
-head(ethnicity_deaths)
+#head(ethnicity_deaths)
 ```
 
-# Total by ethnicity
+## Proportion of Total Deaths
 ```{r}
-total_ethnicity_deaths<-data.frame(matrix(nrow=0,ncol=2))
+prop_ethnicity_deaths<-data.frame(matrix(nrow=0,ncol=2))
 
 for (e in unique(ethnicity_deaths$Ethnicity)) {
   t<-sum(ethnicity_deaths[which(ethnicity_deaths$Ethnicity==e),]$Total.COVID.deaths)
-  total_ethnicity_deaths<-rbind(total_ethnicity_deaths,c(e,t))
+  prop_ethnicity_deaths<-rbind(prop_ethnicity_deaths,c(e,t))
 }
-colnames(total_ethnicity_deaths)<-c("Ethnicity","Total.Deaths") # name columns
-total_ethnicity_deaths$Total.Deaths<-sapply(total_ethnicity_deaths$Total.Deaths,as.integer) # map
-total_ethnicity_deaths<-total_ethnicity_deaths[order(total_ethnicity_deaths$Total.Deaths,decreasing=TRUE),] # sort by total deaths decreasing
-total_ethnicity_deaths
+colnames(prop_ethnicity_deaths)<-c("Ethnicity","Proportion.Deaths") # name columns
+prop_ethnicity_deaths$Proportion.Deaths<-sapply(prop_ethnicity_deaths$Proportion.Deaths,as.double) # map
+prop_ethnicity_deaths$Proportion.Deaths<-prop_ethnicity_deaths$Proportion.Deaths/sum(prop_ethnicity_deaths$Proportion.Deaths) # map
 
-
-total_deaths_by_ethnicity<-ggplot(data=total_ethnicity_deaths, aes(x=1,y=Total.Deaths,fill=Ethnicity)) +
+prop_deaths_by_ethnicity<-ggplot(data=prop_ethnicity_deaths, aes(x=1,y=Proportion.Deaths,fill=Ethnicity)) +
   geom_bar(stat="identity",position="stack") +
-  scale_fill_manual(values=brewer.pal(name="Paired", n = nrow(total_ethnicity_deaths))) +
+  scale_fill_manual(values=brewer.pal(name="Paired", n = nrow(prop_ethnicity_deaths))) +
   theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-total_deaths_by_ethnicity
+prop_deaths_by_ethnicity
+```
+
+## Deaths by Ethnicity and Gender
+```{r}
+ethnicity_deaths_by_gender_ratio<-data.frame(matrix(nrow=0,ncol=3))
+overall_gender_ratio<-sum(ethnicity_deaths[which(ethnicity_deaths$Gender=="Female"),]$Total.COVID.deaths)/sum(ethnicity_deaths$Total.COVID.deaths)
+
+for (e in unique(ethnicity_deaths$Ethnicity)) {
+  male_deaths<-sum(ethnicity_deaths[which(ethnicity_deaths$Gender=="Male" & ethnicity_deaths$Ethnicity==e),]$Total.COVID.deaths)
+  female_deaths<-sum(ethnicity_deaths[which(ethnicity_deaths$Gender=="Female" & ethnicity_deaths$Ethnicity==e),]$Total.COVID.deaths)
+  ethnicity_deaths_by_gender_ratio<-rbind(ethnicity_deaths_by_gender_ratio,c(e,male_deaths/(male_deaths+female_deaths),female_deaths/(male_deaths+female_deaths)))
+}
+
+colnames(ethnicity_deaths_by_gender_ratio)<-c("Ethnicity","Prop.Male","Prop.Female")
+ethnicity_deaths_by_gender_ratio[-1]<-sapply(ethnicity_deaths_by_gender_ratio[-1],as.double)
+
+
+long_data<-melt(data=ethnicity_deaths_by_gender_ratio,id.vars=c("Ethnicity"),measure.vars=c("Prop.Male","Prop.Female"))
+
+p<-ggplot(data=long_data,aes(x=Ethnicity)) +
+  ylab("Female:Male Deaths") +
+  ggtitle("Proportion of Male to Female RONA related deaths by ethnicity") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity") +
+  scale_colour_manual(" ", values="black") +
+  scale_fill_manual("",values=c("steelblue","hotpink")) +
+  geom_hline(aes(yintercept=overall_gender_ratio,color="Overall")) +
+  annotate("text",x=1,y=overall_gender_ratio+.04,label=round(overall_gender_ratio,2),colour="black") +
+  theme(axis.text.x = element_text(angle = 10))
+p
+```
+
+## Deaths by Ethnicity and Age
+```{r}
+ethnicity_deaths_by_age_ratio<-data.frame(matrix(ncol=0,nrow=3))
+overall_age_ratio<-sum(ethnicity_deaths[which(ethnicity_deaths$Under.65=="FALSE"),]$Total.COVID.deaths)/sum(ethnicity_deaths$Total.COVID.deaths)
+
+for (e in unique(ethnicity_deaths$Ethnicity)) {
+  young_deaths<-sum(ethnicity_deaths[which(ethnicity_deaths$Under.65=="TRUE" & ethnicity_deaths$Ethnicity==e),]$Total.COVID.deaths)
+  old_deaths<-sum(ethnicity_deaths[which(ethnicity_deaths$Under.65=="FALSE" & ethnicity_deaths$Ethnicity==e),]$Total.COVID.deaths)
+  ethnicity_deaths_by_age_ratio<-rbind(ethnicity_deaths_by_age_ratio,c(e,young_deaths/(young_deaths+old_deaths),old_deaths/(young_deaths+old_deaths)))
+}
+
+colnames(ethnicity_deaths_by_age_ratio)<-c("Ethnicity","Prop.Under.65","Prop.Over.65")
+ethnicity_deaths_by_age_ratio[-1]<-sapply(ethnicity_deaths_by_age_ratio[-1],as.double)
+
+long_data<-melt(data=ethnicity_deaths_by_age_ratio,id.vars=c("Ethnicity"),measure.vars=c("Prop.Under.65","Prop.Over.65"))
+
+p<-ggplot(data=long_data,aes(x=Ethnicity)) +
+  ylab("<65 : 65+ Deaths") +
+  ggtitle("Proportion of Male to Female RONA related deaths by ethnicity") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity") +
+  geom_hline(aes(yintercept=overall_age_ratio,color="Overall")) +
+  scale_fill_manual("",values=c("steelblue","gray")) +
+  scale_colour_manual(" ", values="black") +
+  annotate("text",x=1,y=overall_age_ratio+.04,label=round(overall_age_ratio,2),colour="black") +
+  theme(axis.text.x = element_text(angle = 10))
+p
+```
+Set bar widths to account for proportion of deaths by ethnicity
+
+# Deaths by Location
+Data up to week ending 22nd May 2020.
+```{r}
+location_deaths<-read.csv("data/covid_deaths/ENG_WAL_Weekly_COVID_Deaths_Location.csv")
+colnames(location_deaths)[c(4,7)]<-c("Hospital","Other.Communal")
+#head(location_deaths
+```
+
+## Proportion of Total Deaths
+```{r}
+prop_deaths_by_location<-data.frame(matrix(nrow=0,ncol=0))
+total_deaths<-sum(location_deaths[-1:-2])
+
+for (i in 3:length(location_deaths)) {
+  col<-location_deaths[,i]
+  loc<-colnames(location_deaths)[i]
+  prop_deaths_by_location<-rbind(prop_deaths_by_location,c(loc,sum(col)/total_deaths))
+}
+colnames(prop_deaths_by_location)<-c("Location","Prop.Deaths")
+prop_deaths_by_location$Prop.Deaths<-sapply(prop_deaths_by_location$Prop.Deaths,as.double)
+
+p<-ggplot(data=prop_deaths_by_location, aes(x=1,y=Prop.Deaths,fill=Location)) +
+  geom_bar(stat="identity",position="stack") +
+  scale_fill_manual(values=brewer.pal(name="Paired", n = nrow(prop_deaths_by_location))) +
+  theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank()) +
+  ggtitle("Proportion of Deaths by Location")
+p
+```
+
+## Cummulative Weekly Deaths by Location
+```{r}
+colours<-rainbow(ncol(location_deaths))
+
+p<-plot(1,type="n",xlim=c(min(location_deaths$Week.number),max(location_deaths$Week.number)),ylim=c(0,max(location_deaths[-1:-2])),xlab="Week Number",ylab="Number of Deaths",main="Weekly Deaths per Location")
+for (i in 3:ncol(location_deaths)) {
+  col<-location_deaths[,i]
+  p<-lines(x=location_deaths$Week.number,y=col,col=colours[i])
+}
+p<-legend("left",legend=colnames(cum_region_deaths)[-1:-2],col=colours[-1:-2],lty=1)
+```
+## Proportion over time
+```{r}
+location_deaths_weekly_proportion<-cbind(location_deaths[1:2],location_deaths[-1:-2]/rowSums(location_deaths[-1:-2]))
+
+long_data<-melt(data=location_deaths_weekly_proportion,id.vars=c("Week.number"),measure.vars=colnames(location_deaths_weekly_proportion[-1:-2]))
+
+p<-ggplot(data=long_data,aes(x=Week.number)) +
+  ylab("Proportion of All Deaths") +
+  xlab("Week Number") +
+  ggtitle("Proportion of Weekly Deaths by Location") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity")
+p
+```
+
+## Cummulative Weekly Deaths by Location
+```{r}
+cum_location_deaths<-cumsum(location_deaths[-1:-2])
+cum_location_deaths<-data.frame(cbind(location_deaths[1:2],cum_location_deaths))
+
+colours<-rainbow(ncol(location_deaths))
+
+p<-plot(1,type="n",xlim=c(min(cum_location_deaths$Week.number),max(cum_location_deaths$Week.number)),ylim=c(0,max(cum_location_deaths[-1:-2])),xlab="Week Number",ylab="Number of Deaths",main="Cummulative Weekly Deaths per Location")
+for (i in 3:ncol(cum_location_deaths)) {
+  col<-cum_location_deaths[,i]
+  p<-lines(x=cum_location_deaths$Week.number,y=col,col=colours[i])
+}
+p<-legend("left",legend=colnames(cum_location_deaths)[-1:-2],col=colours[-1:-2],lty=1)
 ```

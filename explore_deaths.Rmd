@@ -1,0 +1,248 @@
+---
+title: "Explore All Deaths"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+library(ggplot2)
+library(reshape2) # melt
+library(RColorBrewer) # colour pallettes for ggplot
+```
+
+```{r}
+# Utility functions
+age_range_str<-function(s){
+  gsub("\\.","_",gsub("X","",s))
+}
+
+age_str_lower_bound<-function(s){
+  if (s=="_1") {0}
+  else {
+    as.integer(strsplit(s,"_")[[1]][1])
+  }
+}
+```
+
+
+# Total Deaths
+Data correct as of week ending 22nd May 2020
+```{r}
+weekly_deaths_data<-read.csv("data/deaths/ENG_WAL_Weekly_Deaths_2020.csv")
+colnames(weekly_deaths_data)
+```
+
+## Total by Age
+```{r}
+total_deaths_by_age<-data.frame(matrix(ncol=2,nrow=0))
+
+for (i in 3:ncol(weekly_deaths_data)) {
+  col<-weekly_deaths_data[,i]
+  age<-age_range_str(colnames(weekly_deaths_data)[i])
+  total_deaths_by_age<-rbind(total_deaths_by_age,c(age,sum(col)))
+}
+
+colnames(total_deaths_by_age)<-c("Age","Total.Deaths")
+total_deaths_by_age$Total.Deaths<-sapply(total_deaths_by_age$Total.Deaths,as.integer)
+
+labels<-total_deaths_by_age$Total.Deaths
+labels[which(labels!=max(labels) & labels!=min(labels))]<-""
+
+p<-barplot(total_deaths_by_age$Total.Deaths,las=2,xpd=TRUE,names=total_deaths_by_age$Age,ylab="Total Deaths",main="Total Deaths by Age",sub=paste("Up to week ending",tail(weekly_deaths_data$Week.Ended,n=1)),ylim=c(0,max(total_deaths_by_age$Total.Deaths)*1.1))
+p<-text(x=p,y=total_deaths_by_age$Total.Deaths,label=labels,pos=3,cex=0.8,col="red")
+```
+
+## Total Weekly
+```{r}
+total_weekly_deaths<-data.frame(cbind(weekly_deaths_data[1:2],rowSums(weekly_deaths_data[-1:-2])))
+colnames(total_weekly_deaths)[3]<-"Total.Deaths"
+
+labels<-total_weekly_deaths$Total.Deaths
+labels[which(labels!=max(labels) & labels!=min(labels))]<-""
+
+p<-plot(x=total_weekly_deaths$Week.Number,y=total_weekly_deaths$Total.Deaths,type="l",xlab="Week Number",ylab="Total Deaths",ylim=c(0,max(total_weekly_deaths$Total.Deaths)*1.1),main="Weekly Deaths in England and Wales from all causes",sub=paste("Up to week ending",tail(total_weekly_deaths$Week.Ended,n=1)))
+p<-text(x=total_weekly_deaths$Week.Number,y=total_weekly_deaths$Total.Deaths,label=labels,pos=3,cex=0.8,col="red")
+p<-polygon(x=c(1,total_weekly_deaths$Week.Number,21),y=c(0,total_weekly_deaths$Total.Deaths,0),density=5,col="black")
+```
+
+## Cummulative
+```{r}
+cummulative_deaths<-data.frame(cbind(weekly_deaths_data[1:2],cumsum(total_weekly_deaths[3])))
+colnames(cummulative_deaths)[3]<-"Cumm.Deaths"
+
+p<-plot(x=cummulative_deaths$Week.Number,y=cummulative_deaths$Cumm.Deaths,type="l",xlab="Week Number",ylab="Cummulative Deaths",main="Cummulative Deaths in England and Wales from all causes",sub=paste("Up to week ending",tail(cummulative_deaths$Week.Ended,n=1)))
+p<-polygon(x=c(1,cummulative_deaths$Week.Number,21),y=c(0,cummulative_deaths$Cumm.Deaths,0),density=5,col="black")
+```
+
+# Deaths by Gender
+```{r}
+weekly_male_deaths_data<-read.csv("data/deaths/ENG_WAL_Weekly_Deaths_Male_2020.csv")
+weekly_female_deaths_data<-read.csv("data/deaths/ENG_WAL_Weekly_Deaths_Female_2020.csv")
+colnames(weekly_male_deaths_data)
+```
+
+## Total Proportion by Week
+```{r}
+prop_gender_weekly_deaths<-data.frame(matrix(ncol=4,nrow=0))
+
+for (i in 1:nrow(weekly_male_deaths_data)) {
+  male_row<-weekly_male_deaths_data[i,]
+  female_row<-weekly_female_deaths_data[i,]
+  total_deaths<-sum(male_row[-1:-2])+sum(female_row[-1:-2])
+  
+  prop_gender_weekly_deaths<-rbind(prop_gender_weekly_deaths,cbind(male_row[1:2],sum(male_row[-1:-2])/total_deaths,sum(female_row[-1:-2])/total_deaths))
+}
+colnames(prop_gender_weekly_deaths)[3:4]<-c("Male","Female")
+
+long_data<-melt(data=prop_gender_weekly_deaths,id.vars=c("Week.number"),measure.vars=c("Male","Female"))
+
+p<-ggplot(data=long_data,aes(x=Week.number)) +
+  ylab("Male:Female Deaths") +
+  xlab("Week Number") +
+  ggtitle("Weekly Proportion of Male to Female deaths (All Causes)") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity") +
+  geom_hline(yintercept=.5) + # Expected
+  scale_fill_manual("",values=c("steelblue","hotpink"))
+p
+```
+
+## Compare Age proportions by Gender
+```{r}
+prop_gender_age_deaths<-data.frame(matrix(ncol=4,nrow=0))
+week_cap<-tail(weekly_male_deaths_data$Week.number,n=1)
+#week_cap<-5
+
+for (i in 3:ncol(weekly_male_deaths_data)) {
+  age<-age_range_str(colnames(weekly_male_deaths_data)[i])
+  
+  male_col<-weekly_male_deaths_data[1:week_cap,i]
+  female_col<-weekly_female_deaths_data[1:week_cap,i]
+  total_deaths<-sum(male_col)+sum(female_col)
+  
+  rolling_prop<-sum(weekly_female_deaths_data[1:week_cap,3:i])/(sum(weekly_male_deaths_data[1:week_cap,3:i])+sum(weekly_female_deaths_data[1:week_cap,3:i]))
+  
+  prop_gender_age_deaths<-rbind(prop_gender_age_deaths,c(age,sum(male_col)/total_deaths,sum(female_col)/total_deaths,rolling_prop))
+}
+colnames(prop_gender_age_deaths)<-c("Age_Lower_Bound","Male","Female","rolling_prop")
+prop_gender_age_deaths[-1]<-sapply(prop_gender_age_deaths[-1],as.double)
+prop_gender_age_deaths$Age_Lower_Bound<-sapply(prop_gender_age_deaths$Age_Lower_Bound,age_str_lower_bound)
+
+overall_gender_ratio<-sum(weekly_female_deaths_data[1:week_cap,-1:-2])/((sum(weekly_male_deaths_data[1:week_cap,-1:-2]))+sum(weekly_female_deaths_data[1:week_cap,-1:-2]))
+
+long_data<-melt(data=prop_gender_age_deaths,id.vars=c("Age_Lower_Bound","rolling_prop"),measure.vars=c("Male","Female"))
+widths<-c(diff(prop_gender_age_deaths$Age_Lower_Bound),5)-.2 # widths of bars
+
+p<-ggplot(data=long_data,aes(x=Age_Lower_Bound)) +
+  ylab("Male:Female Deaths") +
+  xlab("Age") +
+  ggtitle("Proportion of Male to Female deaths by age (All Causes)") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity",width=widths) +
+  geom_line(aes(y=rolling_prop,color="Rolling Proportion"),size=1) +
+  geom_hline(aes(yintercept=.5)) +
+  scale_colour_manual(" ", values="black") +
+  scale_fill_manual("",values=c("steelblue","hotpink")) +
+  annotate("text",x=tail(prop_gender_age_deaths$Age_Lower_Bound+3,n=1)+1,y=tail(rolling_prop,n=1),label=round(tail(rolling_prop,n=1),2),colour="black")
+p
+```
+
+# Deaths by Region
+```{r}
+weekly_region_death_data<-read.csv("data/deaths/ENG_WAL_Weekly_Deaths_Regional_2020.csv")
+head(weekly_region_death_data)
+
+```
+## Total Deaths by Region
+```{r}
+total_deaths_by_region<-data.frame(cbind(colnames(weekly_region_death_data)[-1:-2],colSums(weekly_region_death_data[-1:-2])))
+colnames(total_deaths_by_region)<-c("Region","Total.Deaths")
+total_deaths_by_region$Total.Deaths<-sapply(total_deaths_by_region$Total.Deaths,as.integer)
+total_deaths_by_region<-total_deaths_by_region[order(total_deaths_by_region$Total.Deaths),]
+
+labels<-total_deaths_by_region$Total.Deaths
+labels[which(labels!=max(labels) & labels!=min(labels))]<-""
+
+p<-barplot(total_deaths_by_region$Total.Deaths,names=total_deaths_by_region$Region,las=2,xpd=FALSE,ylim=c(0,max(total_deaths_by_region$Total.Deaths)*1.1),main="Total Deaths by Region (All Causes)",sub=paste("Up to",tail(weekly_region_death_data$Week.ended,n=1)))
+p<-text(x=p,y=total_deaths_by_region$Total.Deaths,label=labels,pos=3,cex=0.8,col="red")
+```
+
+
+## Deaths per Week by Region
+```{r}
+colours<-rainbow(ncol(weekly_region_death_data))
+
+p<-plot(1,type="n",xlim=c(0,max(weekly_region_death_data$Week.number)),ylim=c(0,max(weekly_region_death_data[-1:-2])),xlab="Week Number",y="Number of Deaths",main="Weekly Deaths per Region (All Causes)")
+for (i in 3:ncol(weekly_region_death_data)) {
+  col<-weekly_region_death_data[,i]
+  p<-lines(x=weekly_region_death_data$Week.number,y=col,col=colours[i])
+}
+p<-legend("left",legend=colnames(weekly_region_death_data)[-1:-2],col=colours[-1:-2],lty=1)
+```
+
+# Deaths by Location
+```{r}
+weekly_location_death_data<-read.csv("data/deaths/ENG_WAL_Weekly_Deaths_Location_2020.csv")
+colnames(weekly_location_death_data)[c(4,7)]<-c("Hospital","Other.Communal")
+head(weekly_location_death_data)
+```
+
+## Proportion of Total Deaths
+```{r}
+prop_deaths_by_location<-data.frame(matrix(nrow=0,ncol=0))
+total_deaths<-sum(weekly_location_death_data[-1:-2])
+
+for (i in 3:length(weekly_location_death_data)) {
+  col<-weekly_location_death_data[,i]
+  loc<-colnames(weekly_location_death_data)[i]
+  prop_deaths_by_location<-rbind(prop_deaths_by_location,c(loc,sum(col)/total_deaths))
+}
+colnames(prop_deaths_by_location)<-c("Location","Prop.Deaths")
+prop_deaths_by_location$Prop.Deaths<-sapply(prop_deaths_by_location$Prop.Deaths,as.double)
+
+p<-ggplot(data=prop_deaths_by_location, aes(x=1,y=Prop.Deaths,fill=Location)) +
+  geom_bar(stat="identity",position="stack") +
+  scale_fill_manual(values=brewer.pal(name="Paired", n = nrow(prop_deaths_by_location))) +
+  theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank()) +
+  ggtitle("Proportion of Deaths by Location (All Causes)")
+p
+```
+
+## Cummulative Weekly Deaths by Location
+```{r}
+colours<-rainbow(ncol(weekly_location_death_data))
+
+p<-plot(1,type="n",xlim=c(min(weekly_location_death_data$Week.number),max(weekly_location_death_data$Week.number)),ylim=c(0,max(weekly_location_death_data[-1:-2])),xlab="Week Number",ylab="Number of Deaths",main="Weekly Deaths per Location (All Causes)")
+for (i in 3:ncol(weekly_location_death_data)) {
+  col<-weekly_location_death_data[,i]
+  p<-lines(x=weekly_location_death_data$Week.number,y=col,col=colours[i])
+}
+p<-legend("left",legend=colnames(cum_region_deaths)[-1:-2],col=colours[-1:-2],lty=1)
+```
+## Proportion over time
+```{r}
+location_deaths_weekly_proportion<-cbind(weekly_location_death_data[1:2],weekly_location_death_data[-1:-2]/rowSums(weekly_location_death_data[-1:-2]))
+
+long_data<-melt(data=location_deaths_weekly_proportion,id.vars=c("Week.number"),measure.vars=colnames(location_deaths_weekly_proportion[-1:-2]))
+
+p<-ggplot(data=long_data,aes(x=Week.number)) +
+  ylab("Proportion of All Deaths") +
+  xlab("Week Number") +
+  ggtitle("Proportion of Weekly Deaths by Location (All Causes)") +
+  geom_bar(aes(y=value,fill=variable),stat="Identity")
+p
+```
+
+## Cummulative Weekly Deaths by Location
+```{r}
+cum_location_deaths<-cumsum(weekly_location_death_data[-1:-2])
+cum_location_deaths<-data.frame(cbind(weekly_location_death_data[1:2],cum_location_deaths))
+
+colours<-rainbow(ncol(weekly_location_death_data))
+
+p<-plot(1,type="n",xlim=c(min(cum_location_deaths$Week.number),max(cum_location_deaths$Week.number)),ylim=c(0,max(cum_location_deaths[-1:-2])),xlab="Week Number",ylab="Number of Deaths",main="Cummulative Weekly Deaths per Location")
+for (i in 3:ncol(cum_location_deaths)) {
+  col<-cum_location_deaths[,i]
+  p<-lines(x=cum_location_deaths$Week.number,y=col,col=colours[i])
+}
+p<-legend("left",legend=colnames(cum_location_deaths)[-1:-2],col=colours[-1:-2],lty=1)
+```
